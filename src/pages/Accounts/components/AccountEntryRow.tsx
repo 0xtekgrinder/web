@@ -3,11 +3,15 @@ import { Avatar, Button, Flex, ListItem, Stack } from '@chakra-ui/react'
 import type { AccountId, AssetId } from '@shapeshiftoss/caip'
 import { useMemo } from 'react'
 import { useTranslate } from 'react-polyglot'
-import { useSelector } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { useHistory } from 'react-router'
 import { generatePath } from 'react-router-dom'
 import { Amount } from 'components/Amount/Amount'
 import { RawText } from 'components/Text'
+import { usePlugins } from 'context/PluginProvider/PluginProvider'
+import { useWallet } from 'hooks/useWallet/useWallet'
+import { deriveAccountIdsAndMetadata } from 'lib/account/account'
+import { portfolio } from 'state/slices/portfolioSlice/portfolioSlice'
 import {
   selectPortfolioAccountsCryptoHumanBalancesIncludingStaking,
   selectPortfolioAccountsFiatBalancesIncludingStaking,
@@ -49,6 +53,24 @@ export const AccountEntryRow: React.FC<AccountEntryRowProps> = ({
     () => (isUtxoAccount ? accountIdToLabel(accountId) : ''),
     [isUtxoAccount, accountId],
   )
+  const dispatch = useDispatch()
+  const { supportedChains } = usePlugins()
+  const {
+    state: { wallet },
+  } = useWallet()
+  const chainIds = supportedChains
+
+  const updateId = () => {
+    if (accountNumber && wallet) {
+      deriveAccountIdsAndMetadata({
+        accountNumber,
+        chainIds,
+        wallet,
+      }).then(accountMetadataByAccountId =>
+        dispatch(portfolio.actions.upsertAccountMetadata(accountMetadataByAccountId)),
+      )
+    }
+  }
 
   return (
     <ListItem>
@@ -61,7 +83,10 @@ export const AccountEntryRow: React.FC<AccountEntryRowProps> = ({
         data-test='account-asset-row-button'
         fontSize={{ base: 'sm', md: 'md' }}
         leftIcon={<Avatar size='sm' src={icon} />}
-        onClick={() => history.push(generatePath('/accounts/:accountId/:assetId', filter))}
+        onClick={() => {
+          updateId()
+          history.push(generatePath('/accounts/:accountId/:assetId', filter))
+        }}
         {...buttonProps}
       >
         <Stack alignItems='flex-start' spacing={0} flex={1}>
